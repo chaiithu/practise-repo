@@ -1,0 +1,39 @@
+pipeline {
+    agent any 
+    tools {
+        maven "MAVEN"
+    }
+    stages {
+        stage ('git scm') {
+            steps {
+                checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/chaiithu/CI-CD-using-Docker.git']])
+            }
+        }
+        stage ('mvn build') {
+            steps {
+                sh 'mvn -Dmaven.test.failure.ignore=true clean install'
+            }
+        }
+        stage ('image build') {
+            steps {
+                sh'docker build -t chaithuchaithanya/app.h .'
+            }
+        }
+        stage ('login & push') {
+            steps {
+                withCredentials([string(credentialsId: 'docker cred', variable: 'dockerhubpwd')]) {
+                    sh"docker login -u chaithuchaithanya -p ${dockerhubpwd}"
+                    sh"docker push chaithuchaithanya/app.h"
+}
+            }
+        }
+        stage ('run container on host') {
+            steps {
+                sshagent(['jenkins-server']) {
+                    sh 'ssh -o StrictHostKeyChecking=no ec2-user@172.31.8.185'
+                    sh'docker run -d -p 8090:8080 --name chaithu chaithuchaithanya/app.h'
+}
+            }
+        }
+    }
+}
